@@ -55,7 +55,7 @@ ix<-Treatments=="UR" | Treatments=="UN" | Treatments=="UF"
 drawPCA(tempDf[ix,],"UR UN UF rhizosphere effect PCA.png")
 ```
 
-## 自定义字体
+## set font
 
 ```{r}
 library(extrafont)

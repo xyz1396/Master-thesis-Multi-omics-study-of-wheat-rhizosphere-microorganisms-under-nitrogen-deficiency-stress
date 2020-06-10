@@ -108,7 +108,7 @@ ggplot(drawDf, aes(x = Treatments, y = Shannon, fill = Positions)) +
     ggsave("Shannon sort by UR,UN,UF,CKR,CKN,CKF.png",width = 10.24, height = 7.68,dpi=100)
 ```
 
-### 按CKN排序
+### sort by CK N
 
 ```{r}
 drawDf<-data.frame(Shannon=df$shannon,
