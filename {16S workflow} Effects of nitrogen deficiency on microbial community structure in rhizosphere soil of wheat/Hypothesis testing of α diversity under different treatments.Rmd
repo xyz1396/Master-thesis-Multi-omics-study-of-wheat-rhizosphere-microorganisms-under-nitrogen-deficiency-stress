@@ -1,0 +1,161 @@
+---
+title: "Hypothesis testing of α diversity under different treatments"
+author: "xyz"
+date: "2020/4/29"
+output: html_document
+---
+
+### sort by RNF
+
+```{r}
+df<-read.table("X101SC19050239-Z01-F001-B1-41_result/03.AlphaDiversity/alpha_diversity_index.txt",sep = "\t",header = T)
+metaData<-readxl::read_xlsx("metaData.xlsx")
+drawDf<-data.frame(Shannon=df$shannon,
+                   Treatments=factor(paste0(metaData$Fertilizer,metaData$Position),
+                                                   levels = c("CKR","UR","CKN","UN","CKF","UF")),
+                   Fertilizer=metaData$Fertilizer,Positions=metaData$Position)
+
+library(extrafont)
+library(ggplot2)
+ggplot(drawDf, aes(x = Treatments, y = Shannon, fill = Fertilizer)) +
+    geom_boxplot(alpha = 0.80) +
+  #  geom_point(aes(fill = position), size = 2, shape = 21 ,position = position_jitterdodge(dodge.width = 1)) +
+    theme(text = element_text(size = 30,family="Times New Roman"))+
+    ggsave("Shannon.png",width = 10.24, height = 7.68,dpi=100)
+
+# ACE, Shannon, Observed species, Simpson, Chao1, Goods coverage, PD whole tree
+```
+
+### ACE sort by U CK
+
+```{r}
+drawDf <-
+  data.frame(
+    stringsAsFactors = F,
+    ACE = df$ACE,
+    Treatments = metaData$Fertilizer
+  )
+drawDf$Treatments<-factor(drawDf$Treatments,levels = c("U","CK"))
+# W = 38, p-value = 1.499e-10
+wilcox.test(ACE~Treatments,data = drawDf)
+ggplot(drawDf, aes(x = Treatments, y = ACE
+                   # , fill = Treatments
+                   )) +
+  geom_boxplot(alpha = 0.80) +
+  #  geom_point(aes(fill = position), size = 2, shape = 21 ,position = position_jitterdodge(dodge.width = 1)) +
+  theme(text = element_text(size = 30, family = "Times New Roman"),
+        axis.text=element_text(colour="black"),legend.position="none") +
+  ggsave("ACE sort by N0 N150.png",
+         width = 10.24,
+         height = 7.68,
+         dpi = 100)
+```
+
+### ACE sort by "UR","UN","UF","CKR","CKN","CKF"
+
+```{r}
+library(ggpubr)
+drawDf <- data.frame(
+  ACE = df$ACE,
+  Treatments = factor(
+    paste0(metaData$Fertilizer, metaData$Position),
+    levels = c("UR", "UN", "UF", "CKR", "CKN", "CKF")
+  ),
+  Positions = factor(metaData$Position, levels = c("R", "N", "F")),
+  Fertilizer = metaData$Fertilizer
+)
+# Kruskal-Wallis chi-squared = 34.206, df = 5, p-value = 2.167e-06
+kruskal.test(ACE~Treatments,drawDf)
+ggplot(drawDf, aes(x = Treatments, y = ACE, fill = Positions)) +
+  geom_boxplot(alpha = 0.80) +
+  # only UN UR was significantly different
+  # stat_compare_means(
+  #   label = "p.signif",
+  #   method = "wilcox.test",
+  #   comparisons = list(
+  #     c("CKR", "CKN"),
+  #     c("CKR", "CKF"),
+  #     c("CKN", "CKF"),
+  #     c("UR", "UN"),
+  #     c("UR", "UF"),
+  #     c("UN", "UF")
+  #   )
+  # ) +
+  theme(
+    text = element_text(size = 30, family = "Times New Roman"),
+    axis.text = element_text(colour = "black")
+  ) +
+  ggsave(
+    "ACE sort by UR,UN,UF,CKR,CKN,CKF.png",
+    width = 10.24,
+    height = 7.68,
+    dpi = 100
+  )
+```
+
+### Shannon sort by "UR","UN","UF","CKR","CKN","CKF"
+
+```{r}
+drawDf<-data.frame(Shannon=df$shannon,
+                   Treatments=factor(paste0(metaData$Fertilizer,metaData$Position),
+                                                   levels = c("UR","UN","UF","CKR","CKN","CKF")),
+                   Positions=factor(metaData$Position,levels = c("R","N","F")),
+                   Fertilizer=metaData$Fertilizer)
+ggplot(drawDf, aes(x = Treatments, y = Shannon, fill = Positions)) +
+    geom_boxplot(alpha = 0.80) +
+    theme(text = element_text(size = 30,family="Times New Roman"),
+          axis.text=element_text(colour="black"))+
+    ggsave("Shannon sort by UR,UN,UF,CKR,CKN,CKF.png",width = 10.24, height = 7.68,dpi=100)
+```
+
+### 按CKN排序
+
+```{r}
+drawDf<-data.frame(Shannon=df$shannon,
+                   Treatments=factor(paste0(metaData$Fertilizer,metaData$Position),
+                                                   levels = c("CKR","CKN","CKF","UR","UN","UF")),
+                   Positions=factor(metaData$Position,levels = c("R","N","F")),
+                   Fertilizer=metaData$Fertilizer)
+
+library(extrafont)
+library(ggplot2)
+library(ggpubr)
+ggplot(drawDf, aes(x = Treatments, y = Shannon, fill = Fertilizer)) +
+    geom_boxplot(alpha = 0.80) +
+  #  geom_point(aes(fill = position), size = 2, shape = 21 ,position = position_jitterdodge(dodge.width = 1)) +
+    stat_compare_means(method = "kruskal.test", label.y = 10)+
+    stat_compare_means(label = "p.signif", method = "wilcox.test", 
+                       # only UN UR was significantly different
+                       comparisons =list( c("CKR", "CKN"), c("CKR", "CKF"), c("CKN", "CKF"),
+                                          c("UR", "UN"), c("UR", "UF"), c("UN", "UF")))+
+    theme(text = element_text(size = 30,family="Times New Roman"))+
+    ggsave("Shannon sort by CK N.png",width = 10.24, height = 7.68,dpi=100)
+
+# pairwise comparison test after kruskal-wallis in r https://rcompanion.org/handbook/F_08.html
+# There was little difference between rhizosphere and non-rhizosphere
+# library(FSA)
+# dunnTest(Shannon~Treatments,drawDf,method="bh")
+# p-value = 0.01781
+kruskal.test(Shannon~Treatments,drawDf)
+
+ggplot(drawDf, aes(x = Treatments, y = Shannon, fill = Fertilizer)) +
+    geom_boxplot(alpha = 0.80) +
+  #  geom_point(aes(fill = position), size = 2, shape = 21 ,position = position_jitterdodge(dodge.width = 1)) +
+    stat_compare_means(method = "kruskal.test",size = 8, label.y = 10,family="Times New Roman")+
+    stat_compare_means(label = "p.signif", method = "wilcox.test", 
+                       # only UN UR was significantly different
+                       comparisons =list(c("UR", "UN")),size = 5,family="Times New Roman")+
+    theme(text = element_text(size = 30,family="Times New Roman"))+
+    ggsave("Shannon CK N, UN vs UR.png",width = 10.24, height = 7.68,dpi=100)
+
+ggplot(drawDf, aes(x = Treatments, y = Shannon, fill = Positions)) +
+    geom_boxplot(alpha = 0.80) +
+  #  geom_point(aes(fill = position), size = 2, shape = 21 ,position = position_jitterdodge(dodge.width = 1)) +
+    # stat_compare_means(method = "kruskal.test",size = 5, label.y = 10)+
+    # stat_compare_means(label = "p.signif", method = "wilcox.test", 
+    #                    # In fact, only UN UR was different
+    #                    comparisons =list(c("UR", "UN")),size = 5,family="Times New Roman")+
+    theme(text = element_text(size = 30,family="Times New Roman"))+
+    ggsave("Shannon without significance.png",width = 10.24, height = 7.68,dpi=100)
+```
+

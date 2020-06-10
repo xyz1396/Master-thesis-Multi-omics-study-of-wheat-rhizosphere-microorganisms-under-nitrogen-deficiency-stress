@@ -1,0 +1,55 @@
+---
+title: "Heatmap of correlation between physical and chemical factors and microbial abundance"
+author: "xyz"
+date: "2020/5/2"
+output: html_document
+---
+
+```{r}
+# phylum level
+df<-read.table("X101SC19050239-Z01-F001-B1-41_result/02.OTUanalysis/taxa_abundance/Absolute/otu_table.p.absolute.xls",
+               header = T)
+metaData<-readxl::read_xlsx("metaData.xlsx")
+env<-metaData[,-1:-3]
+# the physical and chemical factors are logarithmic
+env.log10<- log1p(env)
+otu <- t(df[,c(-1,-56)])
+colnames(otu)<-df$Taxonomy
+# relative abundance
+otu.prop<-prop.table(otu,1)
+library("psych")
+results<-corr.test(otu.prop,env.log10)
+# Screen for phyla with significant correlation
+ix<-results$p
+ix<-ix<0.05
+ix<-rowSums(ix)>0
+significance<-function(x){
+  if(x>=0.05)
+  ""
+  else if (x>=0.01)
+  "*"
+  else "**"
+}
+result.significance<-matrix(sapply(results$p[ix,],significance),nrow=sum(ix))
+pheatmap::pheatmap(results$r[ix,], cluster_row=T,scale="row",fontsize = 20,
+                   # pix=width\height*300, col label angle_col = "45"
+                   filename ="Heatmap of correlation between physical and chemical factors and phyla abundance.png",
+                   width=10,height = 6,
+                   display_numbers=result.significance)
+# Total abundance
+# Firmicutes                Bacteroidetes                Nitrospirae              Gracilibacteria 
+# 108555                    98948                        27690                         1765 
+# Fibrobacteres             Elusimicrobia Candidatus_Jorgensenbacteria         unidentified_Archaea 
+# 1102                      1375                         1028                          312 
+# Berkelbacteria            Parcubacteria  Candidatus_Yanofskybacteria Candidatus_Magasanikbacteria 
+# 491                       387                          306                           89 
+colSums(otu[,ix])
+# relative abundance
+ #                  Firmicutes                Bacteroidetes                  Nitrospirae              Gracilibacteria 
+ #                 5.453367192                  4.970750099                  1.391034384                  0.088666511 
+ #               Fibrobacteres                Elusimicrobia Candidatus_Jorgensenbacteria         unidentified_Archaea 
+ #                 0.055360054                  0.069074477                  0.051642591                  0.015673627 
+ #              Berkelbacteria                Parcubacteria  Candidatus_Yanofskybacteria Candidatus_Magasanikbacteria 
+ #                 0.024665868                  0.019441326                  0.015372211                  0.004471003 
+(colSums(otu)/sum(otu))[ix]*100
+```

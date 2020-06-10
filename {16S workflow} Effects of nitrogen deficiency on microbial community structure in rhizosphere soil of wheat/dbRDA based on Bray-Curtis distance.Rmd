@@ -1,0 +1,113 @@
+---
+title: "dbRDA based on Bray-Curtis distance"
+author: "xyz"
+date: "2020/6/4"
+output: html_document
+---
+
+[Distance-based redundancy analysis (db-RDA) in R](https://archetypalecology.wordpress.com/2018/02/21/distance-based-redundancy-analysis-db-rda-in-r/)
+
+```{r}
+library(vegan)
+library(ggplot2)
+library(ggrepel)
+
+df<-read.table("X101SC19050239-Z01-F001-B1-41_result/02.OTUanalysis/taxa_abundance/Absolute/otu_table.txt")
+metaData<-readxl::read_xlsx("metaData.xlsx")
+
+# Only the values of the OTU table are retained and transposed
+otu <- t(df[,c(-1,-56)])
+env.data<-metaData[,-1:-3]
+# Standardization of environmental data, Logarithm of 10
+env<- log1p(env.data)
+# hellinger transform
+otu.hell <- decostand(otu, "hellinger")
+# Several supported distances "euc", "man", "gow","bra", "kul"
+# The result of using EUCLIDEAN distance is the same as normal RDA
+otu.rda.env<- capscale(otu.hell ~ ., env,dist="bray")
+
+# After the screening of RDA and CCA,
+# all the environmental factors need to be analyzed by collinearity 
+# and the variance expansion factor.
+# remove the COLINEAR environment factor and the largest, 
+# variable until all variables are less than 10.
+# A common rule is that values over 10 indicate redundant constraints.
+vif.cca(otu.rda.env)
+
+# The best combination of environmental factors can be obtained 
+# by detecting the lowest AIC value with step model.
+# mod.u <- step(otu.tab.0, scope = formula(otu.tab.1), test = "perm")# "perm"增加P值等参数
+# mod.d <- step(otu.tab.0, scope = (list(lower = formula(otu.tab.0), upper = formula(otu.tab.1))))
+# mod.d
+
+# Significance of environmental factor fitting
+#          Df Variance      F Pr(>F)    
+# pH        1 0.002011 1.0278  0.357    
+# EC        1 0.007781 3.9759  0.001 ***
+# AP        1 0.001960 1.0016  0.356    
+# AK        1 0.005605 2.8636  0.001 ***
+# Nitrate   1 0.005291 2.7036  0.002 ** 
+# Ammonium  1 0.003531 1.8040  0.045 *  
+# OM        1 0.001595 0.8148  0.659    
+# TN        1 0.001685 0.8611  0.602    
+# TP        1 0.001391 0.7109  0.836    
+# anova(otu.rda.env)
+anova(otu.rda.env, by = "term")
+# anova(otu.rda.env, by = "axis")
+
+# plot
+otu.rda.env.result<-summary(otu.rda.env)
+drawDf=data.frame(x=otu.rda.env.result$sites[,1],
+                y=otu.rda.env.result$sites[,2],
+                Fertilizer=metaData$Fertilizer,
+                Treatments=c(rep("CK2",18),rep(c("CK1","U1"),9),rep("U2",18)),
+                Position=metaData$Position,
+                Label=1:54)
+arrows<-as.data.frame(otu.rda.env.result[["biplot"]])
+
+ggplot(drawDf, aes(x = x, y = y, color = Fertilizer)) +
+  geom_point(size = 3) +
+  stat_ellipse(aes(x = x, y = y, color = Fertilizer), size = 2) +
+  # geom_text_repel(aes(label=Label),max.overlaps=Inf,family="Times New Roman")+
+  xlab(paste0(
+    "dbRDA1(",
+    round(otu.rda.env.result$cont$importance[2, 1] * 100, 2),
+    "%)"
+  )) +
+  ylab(paste0(
+    "dbRDA2(",
+    round(otu.rda.env.result$cont$importance[2, 2] * 100, 2),
+    "%)"
+  )) +
+  theme(text = element_text(size = 30, family = "Times New Roman")) +
+  # add arrows
+  geom_segment(
+    data = arrows,
+    aes(
+      x = rep(0, nrow(arrows)),
+      xend = CAP1,
+      y = rep(0, nrow(arrows)),
+      yend = CAP2
+    ),
+    size = 2,
+    arrow = arrow(),
+    inherit.aes = F
+  ) +
+  geom_text_repel(
+    data = arrows,
+    aes(
+      x = CAP1 + 0.15 * CAP1 / sqrt(CAP1 ** 2 + CAP2 ** 2),
+      y = CAP2 + 0.15 * CAP2 / sqrt(CAP1 ** 2 + CAP2 ** 2),
+      label = rownames(arrows)
+    ),
+    # show.legend=F,
+    show.legend = F,
+    size = 10,
+    inherit.aes = F,
+    family = "Times New Roman"
+  ) +
+  ggsave("Bray-Curtis based dbRDA.png",
+         width = 10.24,
+         height = 7.68,
+         dpi = 100)
+```

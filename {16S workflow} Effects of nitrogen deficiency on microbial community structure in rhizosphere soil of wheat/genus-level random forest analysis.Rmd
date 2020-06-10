@@ -1,0 +1,65 @@
+---
+title: "genus-level random forest analysis"
+author: "xyz"
+date: "2020/5/8"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir="/media/sf_bigData/rootChamberWheat")
+```
+
+```{r}
+df<-read.table("X101SC19050239-Z01-F001-B1-41_result/02.OTUanalysis/taxa_abundance/Relative/otu_table.g.relative.xls",
+               header=T)
+metaData<-readxl::read_xlsx("metaData.xlsx")
+```
+
+[roc curve](https://stats.stackexchange.com/questions/188616/how-can-we-calculate-roc-auc-for-classification-algorithm-such-as-random-forest)
+
+```{r}
+otu <- t(df[,c(-1,-56)])
+colnames(otu)<-df$Taxonomy
+library(randomForest)
+set.seed(315)
+# training
+rf = randomForest(x=otu,y=factor(metaData$Fertilizer), importance=TRUE, proximity=TRUE, ntree = 1000)
+print(rf)
+# cross-validation
+result = rfcv(otu, factor(metaData$Fertilizer), cv.fold=10)
+# n.var=234 works best
+result$error.cv
+with(result, plot(n.var, error.cv, log="x", type="o", lwd=2))
+# Mapping the importance of each genus in random forest classification
+tempDf<-data.frame(MeanDecreaseAccuracy=rf$importance[,"MeanDecreaseAccuracy"],Generus=rownames(rf$importance))
+tempDf<-dplyr::arrange(tempDf,MeanDecreaseAccuracy)
+tempDf$Generus<-factor(tempDf$Generus,levels=tempDf$Generus)
+tempDf<-tempDf[(nrow(tempDf)-15):nrow(tempDf),]
+library(ggplot2)
+library(stringr)
+ggplot(data = tempDf, aes(x=Generus,y=MeanDecreaseAccuracy,fill=Generus)) + 
+  geom_bar(stat="identity",show.legend=F)+
+  theme(text = element_text(size = 30))+
+  scale_x_discrete(labels=function(x) str_wrap(str_replace_all(str_replace_all(x,"unidentified_",""),"_"," "), width=20))+
+  coord_flip()+
+  ggsave("the importance of each genus in random forest classification.png",
+         width = 9.6, height = 10.8,dpi=100)
+# change font
+ggplot(data = tempDf, aes(x=Generus,y=MeanDecreaseAccuracy,fill=Generus)) + 
+  geom_bar(stat="identity",show.legend=F)+
+  theme(text = element_text(size = 30,family="Times New Roman"),
+        axis.text.y = element_text(face = "italic",colour="black"),
+        axis.text.x = element_text(colour="black"))+
+  scale_x_discrete(labels=function(x) str_wrap(str_replace_all(str_replace_all(x,"unidentified_",""),"_"," "), width=20),)+
+  coord_flip()+
+  ggsave("the importance of each genus in random forest classification change font.png",
+         width = 9, height = 12,dpi=100)
+
+# roc curve
+library(pROC)
+rf.roc<-roc(factor(metaData$Fertilizer),rf$votes[,2],smooth=TRUE)
+plot(rf.roc)
+auc(rf.roc)
+```
+

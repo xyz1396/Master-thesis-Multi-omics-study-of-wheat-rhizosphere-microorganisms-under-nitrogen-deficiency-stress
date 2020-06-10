@@ -1,0 +1,88 @@
+---
+title: "PCA analysis of rhizosphere effect"
+author: "xyz"
+date: "2019/12/11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir="/media/sf_bigData/rootChamberWheat")
+```
+
+```{r}
+# df<-read.table("X101SC19050239-Z01-F001-B1-41_result/02.OTUanalysis/taxa_abundance/Absolute/otu_table.txt")
+df<-read.table("X101SC19050239-Z01-F001-B1-41_result/02.OTUanalysis/taxa_abundance/Relative/otu_table.relative.xls")
+metaData<-readxl::read_xlsx("metaData.xlsx")
+```
+
+[draw neat polygons around scatterplot regions in ggplot2](https://stats.stackexchange.com/questions/22805/how-to-draw-neat-polygons-around-scatterplot-regions-in-ggplot2)
+
+```{r}
+library(vegan)
+library(ggplot2)
+library(ggrepel)
+
+# group by CKR CKN CKF
+otu<-t(df[,2:55])
+Treatments<-factor(paste0(metaData$Fertilizer,metaData$Position),levels=c("CKR","CKN","CKF","UR","UN","UF"))
+ix<-Treatments=="CKR" | Treatments=="CKN" | Treatments=="CKF"
+pca<-rda(otu,scale=T)
+importance<-summary(pca)[["cont"]][["importance"]]
+siteScore<-summary(pca)[["sites"]]
+tempDf<-data.frame(x=siteScore[,1],
+                   y=siteScore[,2],
+                   Treatments=Treatments,
+                   Label=1:54)
+
+drawPCA<-function(tempDf,fileName){
+  # Find the CONVEX polygons that surround each group
+  hulls <- plyr::ddply(tempDf, "Treatments", function(df) df[chull(df$x, df$y), ])
+  ggplot(tempDf, aes(x = x, y = y,color = Treatments,fill=Treatments))+
+    geom_point(size=3)+
+    # stat_ellipse(aes(x = x, y = y, color = Treatments,size = 2),show.legend=F)+
+    geom_polygon(data = hulls, alpha = 0.5)+
+    geom_text_repel(aes(label=Label),max.overlaps=Inf)+
+    xlab(paste0("PC1(",round(importance[2,1]*100,2),"%)"))+
+    ylab(paste0("PC2(",round(importance[2,2]*100,2),"%)"))+
+    theme(text = element_text(size = 30))+
+    ggsave(fileName,width = 10.24, height = 7.68,dpi=100)
+}
+
+drawPCA(tempDf[ix,],"CKR CKN CK rhizosphere effect PCA.png")
+
+ix<-Treatments=="UR" | Treatments=="UN" | Treatments=="UF"
+drawPCA(tempDf[ix,],"UR UN UF rhizosphere effect PCA.png")
+```
+
+## 自定义字体
+
+```{r}
+library(extrafont)
+# copy fonts 
+# cp times.ttf /usr/share/fonts/local/
+# import fonts
+#font_import()
+# fonts()  
+# loadfonts()
+drawPCA<-function(tempDf,fileName){
+  # Find the CONVEX polygons that surround each group
+  hulls <- plyr::ddply(tempDf, "Treatments", function(df) df[chull(df$x, df$y), ])
+  ggplot(tempDf, aes(x = x, y = y,color = Treatments,fill=Treatments))+
+    geom_point(size=3)+
+    # stat_ellipse(aes(x = x, y = y, color = Treatments,size = 2),show.legend=F)+
+    geom_polygon(data = hulls, alpha = 0.5)+
+    # geom_text_repel(aes(label=Label),max.overlaps=Inf,family="Times New Roman")+
+    xlab(paste0("PC1(",round(importance[2,1]*100,2),"%)"))+
+    ylab(paste0("PC2(",round(importance[2,2]*100,2),"%)"))+
+    theme(text = element_text(size = 30,family="Times New Roman"))+
+    ggsave(fileName,width = 10.24, height = 7.68,dpi=100)
+}
+
+ix<-Treatments=="CKR" | Treatments=="CKN" | Treatments=="CKF"
+drawPCA(tempDf[ix,],"CKR CKN CK rhizosphere effect PCA2.png")
+
+ix<-Treatments=="UR" | Treatments=="UN" | Treatments=="UF"
+drawPCA(tempDf[ix,],"CKR CKN CK rhizosphere effect PCA2.png")
+```
+

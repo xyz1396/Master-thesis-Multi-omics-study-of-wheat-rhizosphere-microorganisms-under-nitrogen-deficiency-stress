@@ -1,0 +1,85 @@
+---
+title: "summarised table of plant basic physical and chemical properties labeled with significant difference"
+author: "xyz"
+date: "2020/4/21"
+output: html_document
+---
+
+```{r}
+library(knitr)
+library(kableExtra)
+library(plyr)
+library(multcomp)
+
+df1<-readxl::read_xlsx("/media/sf_wheat-soil/soilprotein/Root box wheat/20190312 wheat chlorophyll.xlsx")
+df1<-data.frame(Treatments=df1$Treatments,SPAD=apply(df1[,4:6],1,mean,na.rm = T))
+df1<-arrange(df1,Treatments)
+df1<-cbind(Index=1:54,df1)
+df2<-readxl::read_xlsx("/media/sf_wheat-soil/soilprotein/Root box wheat/wheat biomass 20190314.xlsx")
+df2<-data.frame(Treatments=df2$Treatments,Biomass=df2$Total-df2$paperBag)
+df2<-arrange(df2,Treatments)
+df2<-cbind(Index=c(1:18,18.1,20:53),df2)
+df3<-readxl::read_xlsx("/media/sf_wheat-soil/soilprotein/Root box wheat/wheat spike length20190314.xlsx")
+df3<-data.frame(Treatments=df3$Treatments,Spike=df3$Spike)
+df3<-arrange(df3,Treatments)
+df3<-cbind(Index=c(1:18,18.1,20:53),df3)
+df4<-readxl::read_xlsx("/media/sf_wheat-soil/soilprotein/Root box wheat/Root box wheat N P K.xlsx")
+df4<-df4[,-1:-2]
+colnames(df4)<-c("Treatments","N","P","K")
+df4<-arrange(df4,Treatments)
+df4<-cbind(Index=1:53,df4)
+df5<-join_all(list(df1,df2,df3,df4),by="Index","full")
+df5<-df5[,-1]
+df5[26,5]<-NA
+df5[38,5]<-NA
+
+
+# sort factor sequence
+df5$Treatments<-factor(df5$Treatments,
+                       levels=c("-N","+N on one side","+N on two sides"))
+# Output the mean and standard deviation of each set of data
+# https://stackoverflow.com/questions/6955128/object-not-found-error-with-ddply-inside-a-function
+# add here before summerize
+meanAndSd<-function(x){
+  as.vector(t(ddply(df5, .(Treatments), here(summarize),
+      mean = mean(get(x), na.rm = TRUE),
+      sd = sd(get(x),na.rm = TRUE))[,-1]))
+}
+df6<-t(sapply(colnames(df5)[-1], meanAndSd))
+# Reserve two decimal places and display only two decimal places
+df6<-t(apply(df6,2, function(x)format(round(x, 2), nsmall = 2,trim = T)))
+# Connect the mean and standard deviation by ±,
+# and tapply will enter the same function with the same argument for the corresponding factor
+df6<-t(apply(df6,2,function(x)unlist(lapply(tapply(x, gl(3,2), c), paste, collapse="±"))))
+
+
+# Mark significance
+multiCompare <- function(property) {
+  fit<-aov(get(property) ~ Treatments, data = df5)
+  tukCld<- cld(glht(fit,linfct = mcp(Treatments = "Tukey")),level = 0.01)
+  tukCld$mcletters$Letters
+}
+df7<-t(sapply(colnames(df5)[-1],multiCompare))
+df7<-apply(df7,2,toupper)
+df8<-matrix(paste(df6,df7),nrow=nrow(df6))
+row.names(df8)<-rownames(df7)
+colnames(df8)<-colnames(df7)
+write.csv(df8,"summarised table of plant basic physical and chemical properties labeled with significant difference.csv")
+
+colnames(df8)<-c("N0","N150","N300")
+row.names(df8)<-c(paste0("SPAD"," **"),
+                  paste0("Biomass (g)"," **"),
+                  paste0("Spike Length (cm)"," **"),
+                  paste0("Total Nitrogen (%)"," **"),
+                  paste0("Total Phosphorus (%)"," **"),
+                  paste0("Total Potassium (%)"," **")
+                  )
+
+kable(df8,align = "l",escape = F) %>%
+  kable_styling("striped") %>%
+    footnote(general = "** The difference among treatments is extremely significant.",
+             general_title = "",
+             footnote_as_chunk = T
+             )
+```
+

@@ -1,0 +1,79 @@
+---
+title: "Correlation between physical and chemical factors and α diversity"
+author: "xyz"
+date: "2019/12/11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir="/media/sf_bigData/rootChamberWheat")
+```
+
+```{r}
+# df<-read.table("X101SC19050239-Z01-F001-B1-41_result/02.OTUanalysis/taxa_abundance/Absolute/otu_table.txt")
+# df<-read.table("X101SC19050239-Z01-F001-B1-41_result/02.OTUanalysis/taxa_abundance/Relative/otu_table.relative.xls")
+df<-read.table("X101SC19050239-Z01-F001-B1-41_result/03.AlphaDiversity/alpha_diversity_index.txt",sep="\t",header = T)
+metaData<-readxl::read_xlsx("metaData.xlsx")
+```
+
+```{r}
+env<-metaData[,-1:-3]
+# The physical and chemical factors are logarithmic
+# env.log10<- log1p(env)
+index<-df[,-1]
+library("psych")
+results<-corr.test(index,env)
+#                  pH           EC AP AK      Nitrate     Ammonium OM TN TP
+# observed_species  1 3.388618e-05  1  1 5.002183e-13 5.480449e-06  1  1  1
+# shannon           1 6.170331e-02  1  1 5.738502e-01 2.082207e-01  1  1  1
+# simpson           1 3.730716e-01  1  1 1.000000e+00 1.000000e+00  1  1  1
+# chao1             1 2.526287e-03  1  1 1.207755e-10 9.230227e-04  1  1  1
+# ACE               1 1.483549e-03  1  1 2.993579e-11 7.601217e-04  1  1  1
+# goods_coverage    1 4.301655e-02  1  1 5.694801e-08 2.835802e-02  1  1  1
+# PD_whole_tree     1 1.578138e-03  1  1 3.753673e-11 1.910719e-04  1  1  1
+results[["p"]]
+#                           pH         EC         AP          AK    Nitrate   Ammonium           OM          TN
+# observed_species -0.12193914 -0.6193581  0.1572718  0.07553614 -0.8305717 -0.6516661 -0.117208785  0.08520276
+# shannon           0.02778749 -0.4268954  0.1859801  0.22642410 -0.3368426 -0.3814289  0.004511597 -0.04259689
+# simpson           0.08075747 -0.3566831  0.1796870  0.20345455 -0.2134754 -0.2748404 -0.023447889 -0.06315514
+# chao1            -0.14899690 -0.5230489  0.1632056  0.05164472 -0.7855188 -0.5491280 -0.120992789  0.12085208
+# ACE              -0.14067994 -0.5373064  0.1592302  0.04189915 -0.7983037 -0.5540870 -0.137733380  0.10153635
+# goods_coverage    0.14926790  0.4397312 -0.1329698 -0.01803467  0.7183204  0.4538452  0.148983261 -0.12080818
+# PD_whole_tree    -0.08494622 -0.5353253  0.1091555 -0.02539308 -0.7961940 -0.5848738 -0.147762556  0.11215996
+#                            TP
+# observed_species  0.131685981
+# shannon           0.044719436
+# simpson          -0.002635995
+# chao1             0.111123578
+# ACE               0.111077323
+# goods_coverage   -0.090547800
+# PD_whole_tree     0.133808815
+results[["r"]]
+#      Nitrate     Ammonium           EC 
+# 5.002183e-13 5.480449e-06 3.388618e-05 
+results[["p"]]["observed_species",c("Nitrate","Ammonium","EC")]
+# R^2
+#   Nitrate  Ammonium        EC 
+# 0.6898493 0.4246686 0.3836044
+results[["r"]]["observed_species",c("Nitrate","Ammonium","EC")]**2
+# plot of observed_species  EC Nitrate Ammonium 
+tempDf<-data.frame(x=c(env$Nitrate,env$Ammonium,env$EC),
+                   y=rep(index$observed_species,3),Factors=rep(c("Nitrate","Ammonium","EC"),each=54))
+tempDf$Factors<-factor(tempDf$Factors, levels = c("Nitrate","Ammonium","EC"))
+Factor_names <- c(
+  'Nitrate'="Nitrate (mg/kg)",
+  'Ammonium'="Ammonium (mg/kg)",
+  'EC'="(EC μS/cm)"
+)
+ggplot(tempDf, aes(x=x, y=y)) +
+  geom_point(size=3) +    
+  geom_smooth(method=lm)+
+  facet_grid(cols = vars(Factors),scales = "free",labeller = as_labeller(Factor_names))+
+  ylab("Observed Species")+
+  xlab(element_blank())+
+  theme(text = element_text(size = 30))+
+  ggsave("Correlation between physical and chemical factors and α diversity.png",
+         width = 19.20, height = 10.80,dpi=100)
+```
+

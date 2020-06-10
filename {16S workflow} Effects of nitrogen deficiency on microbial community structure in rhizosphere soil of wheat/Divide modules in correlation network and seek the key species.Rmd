@@ -1,0 +1,105 @@
+---
+title: "Divide modules in correlation network and seek the key species"
+author: "xyz"
+date: "2020/4/30"
+output: html_document
+---
+
+[SpiecEasi](https://github.com/zdk123/SpiecEasi#pulsar-parallel-utilities-for-model-selection)
+
+```{r}
+library(SpiecEasi)
+df<-read.table("X101SC19050239-Z01-F001-B1-41_result/02.OTUanalysis/taxa_abundance/Absolute/otu_table.txt")
+# df<-read.table("X101SC19050239-Z01-F001-B1-41_result/02.OTUanalysis/taxa_abundance/Relative/otu_table.relative.xls")
+metaData<-readxl::read_xlsx("metaData.xlsx")
+
+tempDf<-df[,2:55]
+rownames(tempDf)<-df$V1
+# filter out otu with abundance <%0.01
+abundance<-rowSums(tempDf)/sum(tempDf)
+otu<-tempDf[abundance>0.0001,]
+# Direct calculation
+# otu.amgut <- spiec.easi(data = t(otu))
+# calculation after standardization
+# otu.spiec <- spiec.easi(data = t(scale(otu)))
+# Speedup computing, windows is not supported at the moment
+pargs2 <- list(rep.num=50, seed=10010, ncores=4)
+otu.spiec <- spiec.easi(t(otu), method='mb', lambda.min.ratio=1e-3, nlambda=30,
+               sel.criterion='bstars', pulsar.select=TRUE, pulsar.params=pargs2)
+# saveRDS(otu.spiec,"otu.spiec.rds")
+otu.spiec <-readRDS("otu.spiec.rds")
+
+# export the Adjacency Matrix
+adjacency_unweight <- data.frame(as.matrix(otu.spiec$refit$stars))
+rownames(adjacency_unweight) <- rownames(otu)
+colnames(adjacency_unweight) <- rownames(otu)
+
+# pkot by igragh
+library(igraph)
+otu.igraph <- adj2igraph(getRefit(otu.spiec), vertex.attr = list(label = rownames(otu),
+                                                                 name=rownames(otu)))
+
+# vsize <- rowMeans(clr(t(otu), 1)) + 6
+vsize <- rowMeans(clr(t(otu), 1)) + 1.3
+am.coord <- layout.fruchterman.reingold(otu.igraph)
+ 
+par(mfrow = c(1, 2))
+png("network by SPIEC-EASI.png",width=6000,height=3000)
+plot(otu.igraph, layout = am.coord, vertex.size = vsize, vertex.label = NA)
+dev.off()
+plot(otu.igraph, vertex.size = 2, vertex.label = NA,margin=c(0,0,0,0))
+```
+
+## Divide modules
+
+```{r}
+V(otu.igraph)$degree <- degree(otu.igraph)
+ 
+# cluster_fast_greedy has multiple models
+set.seed(123)
+V(otu.igraph)$modularity <- membership(cluster_fast_greedy(otu.igraph))
+
+png("network by SPIEC-EASI with modules.png",width=6000,height=3000)
+plot(otu.igraph, layout = am.coord, vertex.size = vsize, vertex.label = NA,
+     edge.curved=T,
+     vertex.color=V(otu.igraph)$modularity)
+dev.off()
+
+# Outputs the name of each node (microbial Otu) , the degree of node, and a list of modules it divides
+nodes_list <- data.frame(
+    nodes_id = V(otu.igraph)$name, 
+        degree = V(otu.igraph)$degree, 
+        modularity = V(otu.igraph)$modularity
+)
+# Node list, which contains the node name, node degree, and the modules it belongs to
+head(nodes_list)    
+
+source('zi_pi.r')
+
+# Calculate inner modules connectivity (Zi) and connectivity (Pi) between modules
+# Specifies the column name for the degree of node and the degree of module in the Adjacency Matrix, 
+rownames(nodes_list)<-nodes_list$nodes_id
+zi_pi <- zi.pi(nodes_list, adjacency_unweight, degree = 'degree', modularity_class = 'modularity')
+
+# According to the threshold, 
+# the nodes can be divided into 4 types and their distribution can be illustrated
+library(ggplot2)
+
+# Na value should be removed, should not be treated as zero
+zi_pi <- na.omit(zi_pi)
+zi_pi[which(zi_pi$within_module_connectivities < 2.5 & zi_pi$among_module_connectivities < 0.62),'type'] <- 'Peripherals'
+zi_pi[which(zi_pi$within_module_connectivities < 2.5 & zi_pi$among_module_connectivities > 0.62),'type'] <- 'Connectors'
+zi_pi[which(zi_pi$within_module_connectivities > 2.5 & zi_pi$among_module_connectivities < 0.62),'type'] <- 'Module hubs'
+zi_pi[which(zi_pi$within_module_connectivities > 2.5 & zi_pi$among_module_connectivities > 0.62),'type'] <- 'Network hubs'
+ 
+ggplot(zi_pi, aes(among_module_connectivities, within_module_connectivities)) +
+geom_point(aes(color = type), alpha = 0.5, size = 2) +
+scale_color_manual(values = c('gray','red','blue','purple'),
+    limits = c('Peripherals', 'Connectors', 'Module hubs', 'Network hubs'))+
+theme(panel.grid = element_blank(), axis.line = element_line(colour = 'black'),
+    panel.background = element_blank(), legend.key = element_blank()) +
+labs(x = 'Among-module connectivities', y = 'Within-module connectivities', color = '') +
+geom_vline(xintercept = 0.62) +
+geom_hline(yintercept = 2.5)
+```
+

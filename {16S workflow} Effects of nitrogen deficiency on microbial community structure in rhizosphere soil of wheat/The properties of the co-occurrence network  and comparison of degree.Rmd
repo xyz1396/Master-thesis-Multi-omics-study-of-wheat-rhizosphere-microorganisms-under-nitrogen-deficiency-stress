@@ -1,0 +1,149 @@
+---
+title: "The properties of the co-occurrence network and comparison of degree"
+author: "xyz"
+date: "2020/4/19"
+output: html_document
+---
+
+## CK
+  
+  (1)Remove the  connections with correlation Coefficient < 0.6 , (2)Remove self-connected nodes,  (3)Remove nodes with abundance <%0.005 
+  [igragh documents](https://igraph.org/r/doc/)   
+  
+```{r}
+library(igragh)
+df<-read.table("X101SC19050239-Z01-F001-B1-41_result/04.BetaDiversity/Network/CK/dot/genus.spearman.index.list")
+# Remove self-connected nodes
+df2<-df[df$V1!=df$V2,]
+colnames(df2)<-c("from","to","Spearman")
+df3<-read.table("X101SC19050239-Z01-F001-B1-41_result/04.BetaDiversity/Network/CK/otu_table.g.relative.xls",header = T)
+df4<-data.frame(Genus=df3$Taxonomy,Abundance=apply(df3[,c(-1,-29)],1,sum))
+g<-graph_from_data_frame(df2, directed=F, vertices=df4)
+g.attribute<-list(
+  # ND (Network diameter)
+  Diameter=diameter(g),
+  # MD (Modularity)
+  Modularity=modularity(g, membership(cluster_walktrap(g))),
+  # Clustering coefficient
+  Clustering=transitivity(g),
+  # Graph density
+  Density=edge_density(simplify(g), loops=FALSE),
+  # the number of its adjacent edges
+  Degree=degree(g),
+  # APL (Average path length or mean distance)
+  Distance=mean_distance(g)
+  )
+```
+
+## Encapsulated as a function
+
+```{r}
+graghAttribute<-function(edges,nodes){
+  edges<-edges[edges$V1!=edges$V2,]
+  g<-graph_from_data_frame(edges, directed=F, vertices=nodes)
+  list(
+  # ND (Network diameter)
+  Diameter=diameter(g),
+  # MD (Modularity)
+  Modularity=modularity(g, membership(cluster_walktrap(g))),
+  # Clustering coefficient
+  Clustering=transitivity(g),
+  # Graph density
+  Density=edge_density(simplify(g), loops=FALSE),
+  # the number of its adjacent edges
+  Degree=degree(g),
+  # APL (Average path length or mean distance)
+  Distance=mean_distance(g)
+  )
+}
+
+df1<-read.table("X101SC19050239-Z01-F001-B1-41_result/04.BetaDiversity/Network/CK/dot/genus.spearman.index.list")
+df2<-read.table("X101SC19050239-Z01-F001-B1-41_result/04.BetaDiversity/Network/CK/otu_table.g.relative.xls",header = T)
+CK.attribute<-graghAttribute(df1,df2)
+
+df3<-read.table("X101SC19050239-Z01-F001-B1-41_result/04.BetaDiversity/Network/U/dot/genus.spearman.index.list")
+df4<-read.table("X101SC19050239-Z01-F001-B1-41_result/04.BetaDiversity/Network/U/otu_table.g.relative.xls",header = T)
+U.attribute<-graghAttribute(df3,df4)
+
+# W = 45510, p-value = 0.01815 Significant difference between CK and U
+wilcox.test(CK.attribute$Degree,U.attribute$Degree)
+
+df5<-read.table("X101SC19050239-Z01-F001-B1-41_result/04.BetaDiversity/Network2/F/dot/genus.spearman.index.list")
+df6<-read.table("X101SC19050239-Z01-F001-B1-41_result/04.BetaDiversity/Network2/F/otu_table.g.relative.xls",header = T)
+F.attribute<-graghAttribute(df5,df6)
+
+df7<-read.table("X101SC19050239-Z01-F001-B1-41_result/04.BetaDiversity/Network2/N/dot/genus.spearman.index.list")
+df8<-read.table("X101SC19050239-Z01-F001-B1-41_result/04.BetaDiversity/Network2/N/otu_table.g.relative.xls",header = T)
+N.attribute<-graghAttribute(df7,df8)
+
+df9<-read.table("X101SC19050239-Z01-F001-B1-41_result/04.BetaDiversity/Network2/R/dot/genus.spearman.index.list")
+df10<-read.table("X101SC19050239-Z01-F001-B1-41_result/04.BetaDiversity/Network2/R/otu_table.g.relative.xls",header = T)
+R.attribute<-graghAttribute(df9,df10)
+
+# Significant difference among F N R
+
+# W = 31739, p-value = 3.493e-06 Significant difference
+wilcox.test(F.attribute$Degree,R.attribute$Degree)
+# W = 31746, p-value = 3.549e-06 Significant difference
+wilcox.test(N.attribute$Degree,R.attribute$Degree)
+# W = 40232, p-value = 0.7361 Significant difference
+wilcox.test(F.attribute$Degree,N.attribute$Degree)
+
+df11<-read.table("X101SC19050239-Z01-F001-B1-41_result/04.BetaDiversity/Network3/CKF/dot/genus.spearman.index.list")
+df12<-read.table("X101SC19050239-Z01-F001-B1-41_result/04.BetaDiversity/Network3/CKF/otu_table.g.relative.xls",header = T)
+CKF.attribute<-graghAttribute(df11,df12)
+
+df13<-read.table("X101SC19050239-Z01-F001-B1-41_result/04.BetaDiversity/Network3/CKN/dot/genus.spearman.index.list")
+df14<-read.table("X101SC19050239-Z01-F001-B1-41_result/04.BetaDiversity/Network3/CKN/otu_table.g.relative.xls",header = T)
+CKN.attribute<-graghAttribute(df13,df14)
+
+df15<-read.table("X101SC19050239-Z01-F001-B1-41_result/04.BetaDiversity/Network3/CKR/dot/genus.spearman.index.list")
+df16<-read.table("X101SC19050239-Z01-F001-B1-41_result/04.BetaDiversity/Network3/CKR/otu_table.g.relative.xls",header = T)
+CKR.attribute<-graghAttribute(df15,df16)
+
+# Significant difference under CK among F N R
+
+# non-significant difference
+wilcox.test(CKF.attribute$Degree,CKR.attribute$Degree)
+# non-significant difference
+wilcox.test(CKN.attribute$Degree,CKR.attribute$Degree)
+# non-significant difference
+wilcox.test(CKF.attribute$Degree,CKN.attribute$Degree)
+
+df17<-read.table("X101SC19050239-Z01-F001-B1-41_result/04.BetaDiversity/Network3/UF/dot/genus.spearman.index.list")
+df18<-read.table("X101SC19050239-Z01-F001-B1-41_result/04.BetaDiversity/Network3/UF/otu_table.g.relative.xls",header = T)
+UF.attribute<-graghAttribute(df17,df18)
+
+df19<-read.table("X101SC19050239-Z01-F001-B1-41_result/04.BetaDiversity/Network3/UN/dot/genus.spearman.index.list")
+df20<-read.table("X101SC19050239-Z01-F001-B1-41_result/04.BetaDiversity/Network3/UN/otu_table.g.relative.xls",header = T)
+UN.attribute<-graghAttribute(df19,df20)
+
+df21<-read.table("X101SC19050239-Z01-F001-B1-41_result/04.BetaDiversity/Network3/UR/dot/genus.spearman.index.list")
+df22<-read.table("X101SC19050239-Z01-F001-B1-41_result/04.BetaDiversity/Network3/UR/otu_table.g.relative.xls",header = T)
+UR.attribute<-graghAttribute(df21,df22)
+
+# Significant difference under U among F N R
+
+# non-significant difference
+wilcox.test(UF.attribute$Degree,UR.attribute$Degree)
+# non-significant difference
+wilcox.test(UN.attribute$Degree,UR.attribute$Degree)
+# W = 36370, p-value = 0.02187 significant difference
+wilcox.test(UF.attribute$Degree,UN.attribute$Degree)
+```
+
+## summarise significant difference among CK, U, N, F, R
+
+```{r}
+list2array<-function(x){
+  AD<-format(round(mean(x$Degree), 3), nsmall = 3,trim = T)
+  ADsd<-format(round(sd(x$Degree), 3), nsmall = 3,trim = T)
+  temp<-c(ND=x$Diameter,MD=x$Modularity,CC=x$Clustering,GD=x$Density,APL=x$Distance)
+  temp<-format(round(temp, 3), nsmall = 3,trim = T)
+  c(AD=paste0(AD,"±",ADsd),temp)
+}
+results<-rbind(ZN=list2array(CK.attribute),N=list2array(U.attribute),
+               R=list2array(R.attribute),N=list2array(N.attribute),`F`=list2array(F.attribute))
+write.csv(results,"properties of the co-occurrence network.csv")
+```
+

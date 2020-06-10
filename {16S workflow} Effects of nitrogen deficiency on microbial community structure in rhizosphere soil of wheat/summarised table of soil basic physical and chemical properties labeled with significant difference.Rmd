@@ -1,0 +1,83 @@
+---
+title: "summarised table of soil basic physical and chemical properties labeled with significant difference"
+author: "xyz"
+date: "2020/4/18"
+output: html_document
+---
+
+```{r}
+library(knitr)
+library(kableExtra)
+library(plyr)
+library(multcomp)
+
+df<-readxl::read_xlsx("/media/sf_wheat-soil/soilprotein/wheat root box/soil basic physical and chemical propertie.xlsx")
+# AP stands for available phosphorus
+colnames(df)<-c("id","plotId","treatments","position","pH","EC","AP","AK","Nitrate","Ammonium","OM","TN","TP")
+# EC units are converted from S / cm to dS / M
+df$EC<-df$EC/1000
+df2<-cbind(df,interTreat=interaction(df$treatments,df$position))
+
+# Delete outlier
+df2[28,"AK"]<-NA
+df2[33,"OM"]<-NA
+df2[50,"TN"]<-NA
+df2[1,"TP"]<-NA
+# sort factor sequence
+df2$interTreat<-factor(df2$interTreat,
+                       levels=c("-N.R","-N.N","-N.F","+N.R","+N.N","+N.F"))
+# Output the mean and standard deviation of each set of data
+# https://stackoverflow.com/questions/6955128/object-not-found-error-with-ddply-inside-a-function
+# add here before summerize
+meanAndSd<-function(x){
+  as.vector(t(ddply(df2, .(interTreat), here(summarize),
+      mean = mean(get(x), na.rm = TRUE),
+      sd = sd(get(x),na.rm = TRUE))[,-1]))
+}
+df3<-t(sapply(colnames(df2)[5:13], meanAndSd))
+# Reserve two decimal places and display only two decimal places
+df3<-t(apply(df3,2, function(x)format(round(x, 2), nsmall = 2,trim = T)))
+# Connect the mean and standard deviation by ±,
+# and tapply will enter the same function with the same argument for the corresponding factor
+df4<-t(apply(df3,2,function(x)unlist(lapply(tapply(x, gl(6,2), c), paste, collapse="±"))))
+
+
+# Mark significance
+multiCompare <- function(property) {
+  fit<-aov(get(property) ~ interTreat, data = df2)
+  tukCld<- cld(glht(fit,linfct = mcp(interTreat = "Tukey")),level = 0.01)
+  tukCld$mcletters$Letters
+}
+df5<-t(sapply(colnames(df2)[5:13],multiCompare))
+df5<-apply(df5,2,toupper)
+df6<-matrix(paste(df4,df5),nrow=nrow(df5))
+write.csv(df6,"summarised table of soil basic physical and chemical properties labeled with significant difference.csv.csv")
+
+colnames(df6)<-rep(c("R","N","F"),2)
+row.names(df6)<-c("pH",
+                  paste0("EC dS/m",footnote_marker_alphabet(1)," **"),
+                  paste0("AP mg/kg",footnote_marker_alphabet(2)," **"),
+                  paste0("AK mg/kg",footnote_marker_alphabet(3)," **"),
+                  paste0("Nitrate mg/kg"," **"),
+                  paste0("Ammonium mg/kg"," **"),
+                  paste0("OM %",footnote_marker_alphabet(4)),
+                  paste0("TN %",footnote_marker_alphabet(5)),
+                  paste0("TP %",footnote_marker_alphabet(6))
+                  )
+
+kable(df6,align = "l",escape = F) %>%
+  kable_styling("striped") %>%
+  add_header_above(c(" "=1,"N0"=3,"N150"=3))%>%
+    footnote(alphabet = c("EC (electrical conductivity).",
+                          "AP (available phophorus).",
+                          "AK (available potassium).",
+                          "OM (organic matter).",
+                          "TN (total nitrogen).",
+                          "TP (total phosphorus)."
+                          ),
+             general = "** The difference among treatments is extremely significant.",
+             general_title = "",
+             footnote_as_chunk = T
+             )
+```
+
