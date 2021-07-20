@@ -90,8 +90,7 @@ xyz
     wheat](%7B16S%20workflow%7D%20Effects%20of%20nitrogen%20deficiency%20on%20microbial%20community%20structure%20in%20rhizosphere%20soil%20of%20wheat)
     🌾
     
-      - XIONG Y, ZHENG L, SHEN RF, LAN P. Acta Pedologica Sinica. (in
-        review) 🕐
+      - Xiong Yi, Zhen Lu, Shen Renfang, et al. Effects of Nitrogen Deficiency on Microbial Community Structure  in Rhizosphere Soil of Wheat. Acta Pedologica Sinica, 2021 ✌️
     
       - Key words: Nitrogen deficiency; Wheat; Rhizosphere
         microorganisms; Microbial community; High-throughput sequencing
